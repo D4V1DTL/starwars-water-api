@@ -14,6 +14,8 @@ provider:
     HISTORIAL_TABLE: fusionados_historial
     PERSONAL_TABLE: almacenar_personalizado
     RATE_LIMIT_TABLE: rate_limit_table
+    RATE_LIMIT_MAX: "5"
+    RATE_LIMIT_WINDOW_SEC: "60"
     WEATHER_API_KEY: e0740f7f1255468db1b34817250807
   iam:
     role:
@@ -119,9 +121,12 @@ resources:
       Properties:
         TableName: rate_limit_table
         AttributeDefinitions:
-          - AttributeName: id
+          - AttributeName: ip_key
             AttributeType: S
         KeySchema:
-          - AttributeName: id
+          - AttributeName: ip_key
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true

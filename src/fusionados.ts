@@ -1,4 +1,4 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
+import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -8,26 +8,71 @@ import {
 import axios from "axios";
 import { randomUUID } from "crypto";
 import { CACHE_TTL_MS, coordsList } from "./config/constants";
-import * as AWSXRay from "aws-xray-sdk-core";
 
-const ddb = DynamoDBDocumentClient.from(
-  AWSXRay.captureAWSv3Client(new DynamoDBClient({}))
+// 📦 X-Ray para trazabilidad
+import AWSXRay from "aws-xray-sdk-core";
+const AWS = AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
+const ddb = DynamoDBDocumentClient.from(AWS);
+
+const rateLimitTable = process.env.RATE_LIMIT_TABLE!;
+const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "5");
+const RATE_LIMIT_WINDOW_SEC = parseInt(
+  process.env.RATE_LIMIT_WINDOW_SEC || "60"
 );
 
-export const handler = async (
-  event: APIGatewayProxyEventV2
-): Promise<APIGatewayProxyResult> => {
-  const planetName = event.queryStringParameters?.planet || "Tatooine";
+// 🔐 Rate limit por IP
+async function isRateLimited(ip: string): Promise<boolean> {
+  const key = `${ip}#${Math.floor(
+    Date.now() / (RATE_LIMIT_WINDOW_SEC * 1000)
+  )}`;
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: rateLimitTable,
+      Key: { ip_key: key },
+    })
+  );
+
+  if (result.Item && result.Item.count >= RATE_LIMIT_MAX) {
+    console.warn(`[RateLimit] Límite alcanzado para IP: ${ip}`);
+    return true;
+  }
+
+  await ddb.send(
+    new PutCommand({
+      TableName: rateLimitTable,
+      Item: {
+        ip_key: key,
+        count: (result.Item?.count || 0) + 1,
+        ttl: Math.floor(Date.now() / 1000) + RATE_LIMIT_WINDOW_SEC,
+      },
+    })
+  );
+
+  return false;
+}
+
+export const handler = async (event: APIGatewayProxyEventV2): Promise<any> => {
   const now = Date.now();
+  const planetName = event.queryStringParameters?.planet || "Tatooine";
   const sourceIp = event.requestContext?.http?.sourceIp || "unknown";
 
-  console.log(`[fusionados] Inicio → IP: ${sourceIp}, planeta: ${planetName}`);
+  console.log(`[START] /fusionados IP: ${sourceIp} | Planet: ${planetName}`);
 
   try {
-    let coordIndex = Math.floor(Math.random() * coordsList.length);
+    if (await isRateLimited(sourceIp)) {
+      console.warn(`[429] Rate limit exceeded for IP: ${sourceIp}`);
+      return {
+        statusCode: 429,
+        body: JSON.stringify({
+          message: "Demasiadas solicitudes. Intenta nuevamente en un momento.",
+        }),
+      };
+    }
+
+    const coordIndex = Math.floor(Math.random() * coordsList.length);
     const { lat, lon } = coordsList[coordIndex];
 
-    // Weather Cache
+    // 🧊 Clima cacheado
     const weatherKey = `weather#${coordIndex}`;
     let weatherData;
 
@@ -40,7 +85,9 @@ export const handler = async (
 
     if (weatherCache.Item && now - weatherCache.Item.timestamp < CACHE_TTL_MS) {
       weatherData = weatherCache.Item.data;
+      console.log(`[CACHE] Weather usado desde cache`);
     } else {
+      console.log(`[API] Llamando a WeatherAPI para ${lat},${lon}`);
       const weatherRes = await axios.get(
         `http://api.weatherapi.com/v1/current.json`,
         {
@@ -50,7 +97,6 @@ export const handler = async (
           },
         }
       );
-
       weatherData = weatherRes.data.current;
 
       await ddb.send(
@@ -59,14 +105,13 @@ export const handler = async (
           Item: {
             id: weatherKey,
             timestamp: now,
-            expireAt: Math.floor(now / 1000) + CACHE_TTL_MS / 1000,
             data: weatherData,
           },
         })
       );
     }
 
-    // SWAPI Cache
+    // 🌍 SWAPI cacheado
     const swapiKey = `swapi#${planetName}`;
     let swapiData;
 
@@ -79,12 +124,15 @@ export const handler = async (
 
     if (swapiCache.Item && now - swapiCache.Item.timestamp < CACHE_TTL_MS) {
       swapiData = swapiCache.Item.data;
+      console.log(`[CACHE] SWAPI usado desde cache`);
     } else {
+      console.log(`[API] Llamando a SWAPI para ${planetName}`);
       const swapiRes = await axios.get(
         `https://swapi.py4e.com/api/planets/?search=${planetName}`
       );
 
       if (!swapiRes.data.results[0]) {
+        console.warn(`[404] Planeta no encontrado: ${planetName}`);
         return {
           statusCode: 404,
           body: JSON.stringify({ message: "Planeta no encontrado" }),
@@ -99,7 +147,6 @@ export const handler = async (
           Item: {
             id: swapiKey,
             timestamp: now,
-            expireAt: Math.floor(now / 1000) + CACHE_TTL_MS / 1000,
             data: swapiData,
           },
         })
@@ -130,13 +177,13 @@ export const handler = async (
       })
     );
 
-    console.log(`[fusionados] Éxito: planeta ${swapiData.name}`);
+    console.log(`[SUCCESS] Fusion completada para ${planetName}`);
     return {
       statusCode: 200,
       body: JSON.stringify({ source: "fusion", data: fusion }),
     };
   } catch (err: any) {
-    console.error("[fusionados] Error:", err);
+    console.error("[ERROR] Error en /fusionados:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: "Error interno", error: err.message }),
