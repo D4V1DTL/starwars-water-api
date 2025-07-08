@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+.env
+package-lock.json
+
+# AWS
+.aws-sam/
+.serverless/
+
+# Tests
+coverage/
+
+# Editor configs
+.vscode/
+.idea/
+.DS_Store

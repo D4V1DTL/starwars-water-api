@@ -1,0 +1,104 @@
+service: starwars-api
+frameworkVersion: "4"
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-2
+  logRetentionInDays: 7
+  environment:
+    CACHE_TABLE: fusionados_cache
+    HISTORIAL_TABLE: fusionados_historial
+    PERSONAL_TABLE: almacenar_personalizado
+    WEATHER_API_KEY: e0740f7f1255468db1b34817250807
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fusionados_cache
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fusionados_historial
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/almacenar_personalizado
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+
+package:
+  individually: true
+
+functions:
+  fusionados:
+    handler: src/fusionados.handler
+    timeout: 5
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /fusionados
+          method: get
+
+  almacenar:
+    handler: src/almacenar.handler
+    timeout: 5
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /almacenar
+          method: post
+
+  historial:
+    handler: src/historial.handler
+    timeout: 5
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /historial
+          method: get
+
+resources:
+  Resources:
+    FusionadosCacheTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: fusionados_cache
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    FusionadosHistorialTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: fusionados_historial
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    AlmacenarPersonalizadoTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: almacenar_personalizado
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
