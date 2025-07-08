@@ -7,11 +7,14 @@ import {
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 import axios from "axios";
+import { isRateLimited } from "../utils/rateLimiter";
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
+
+// Elimino el describe de isRateLimited y dejo solo los describes del handler fusionados
 
 describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
   beforeEach(() => {
@@ -351,5 +354,31 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     expect(body.data.clima.condition).toBe("Soleado");
     expect(body.data.clima.icon).toBe("icono_default.png");
     expect(mockedAxios.get).toHaveBeenCalledTimes(2); // WeatherAPI y SWAPI
+  });
+});
+
+describe("handler fusionados - 429 si se excede el rate limit", () => {
+  beforeEach(() => {
+    ddbMock.reset();
+    jest.clearAllMocks();
+    process.env.CACHE_TABLE = "cache-table";
+    process.env.HISTORIAL_TABLE = "historial-table";
+    process.env.WEATHER_API_KEY = "fake-weather-key";
+  });
+
+  it("devuelve 429 si isRateLimited retorna true", async () => {
+    // Mockear isRateLimited para que devuelva true
+    jest
+      .spyOn(require("../utils/rateLimiter"), "isRateLimited")
+      .mockResolvedValue(true);
+    const event = {
+      queryStringParameters: { planet: "Tatooine" },
+      requestContext: { http: { sourceIp: "1.2.3.4" } },
+    } as unknown as APIGatewayProxyEventV2;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(429);
+    expect(JSON.parse(result.body)).toEqual({
+      message: "Demasiadas solicitudes. Intenta nuevamente en un momento.",
+    });
   });
 });

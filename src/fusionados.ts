@@ -8,48 +8,12 @@ import {
 import axios from "axios";
 import { randomUUID } from "crypto";
 import { CACHE_TTL_MS, coordsList } from "./config/constants";
+import { isRateLimited } from "./utils/rateLimiter";
 
 // 📦 X-Ray para trazabilidad
 import AWSXRay from "aws-xray-sdk-core";
 const AWS = AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
 const ddb = DynamoDBDocumentClient.from(AWS);
-
-const rateLimitTable = process.env.RATE_LIMIT_TABLE!;
-const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "5");
-const RATE_LIMIT_WINDOW_SEC = parseInt(
-  process.env.RATE_LIMIT_WINDOW_SEC || "60"
-);
-
-// 🔐 Rate limit por IP
-async function isRateLimited(ip: string): Promise<boolean> {
-  const key = `${ip}#${Math.floor(
-    Date.now() / (RATE_LIMIT_WINDOW_SEC * 1000)
-  )}`;
-  const result = await ddb.send(
-    new GetCommand({
-      TableName: rateLimitTable,
-      Key: { ip_key: key },
-    })
-  );
-
-  if (result.Item && result.Item.count >= RATE_LIMIT_MAX) {
-    console.warn(`[RateLimit] Límite alcanzado para IP: ${ip}`);
-    return true;
-  }
-
-  await ddb.send(
-    new PutCommand({
-      TableName: rateLimitTable,
-      Item: {
-        ip_key: key,
-        count: (result.Item?.count || 0) + 1,
-        ttl: Math.floor(Date.now() / 1000) + RATE_LIMIT_WINDOW_SEC,
-      },
-    })
-  );
-
-  return false;
-}
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<any> => {
   const now = Date.now();
