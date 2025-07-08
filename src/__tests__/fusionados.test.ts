@@ -50,6 +50,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       message: "Planeta no encontrado",
     });
   });
+
   it("devuelve 500 si la llamada a WeatherAPI falla", async () => {
     // Mock de WeatherAPI que lanza error
     mockedAxios.get.mockImplementationOnce(() =>
@@ -67,16 +68,6 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     expect(body.message).toBe("Error interno");
     expect(body.error).toMatch(/Fallo WeatherAPI/);
     console.error = originalError;
-  });
-});
-
-describe("handler fusionados - clima en caché, SWAPI desde API", () => {
-  beforeEach(() => {
-    ddbMock.reset();
-    jest.clearAllMocks();
-    process.env.CACHE_TABLE = "cache-table";
-    process.env.HISTORIAL_TABLE = "historial-table";
-    process.env.WEATHER_API_KEY = "fake-weather-key";
   });
 
   it("devuelve datos de clima desde la caché si no ha expirado, y SWAPI desde API", async () => {
