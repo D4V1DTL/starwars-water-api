@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: StarWars API
+  description: API que fusiona datos del clima (WeatherAPI) y planetas (SWAPI)
+  version: "1.0.0"
+
+servers:
+  - url: https://<TU_API_ID>.execute-api.us-east-2.amazonaws.com
+
+paths:
+  /fusionados:
+    get:
+      summary: Fusiona datos de clima y planetas
+      parameters:
+        - in: query
+          name: planet
+          required: false
+          schema:
+            type: string
+          description: "Nombre del planeta. Por defecto: Tatooine"
+      responses:
+        "200":
+          description: Datos fusionados correctamente
+        "404":
+          description: Planeta no encontrado
+        "429":
+          description: Límite de solicitudes alcanzado
+        "500":
+          description: Error interno
+
+  /almacenar:
+    post:
+      summary: Almacena datos personalizados
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                planeta:
+                  type: string
+              example:
+                nombre: Luke Skywalker
+                planeta: Tatooine
+      responses:
+        "200":
+          description: Datos almacenados
+
+  /historial:
+    get:
+      summary: Lista el historial de fusiones realizadas
+      responses:
+        "200":
+          description: Lista de historial

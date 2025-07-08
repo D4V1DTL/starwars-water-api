@@ -30,17 +30,16 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fusionados_historial
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/almacenar_personalizado
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/rate_limit_table
-
-httpApi:
-  cors:
-    allowedOrigins:
-      - "*"
-    allowedHeaders:
-      - Content-Type
-      - Authorization
-    allowedMethods:
-      - GET
-      - POST
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
 
 package:
   individually: true
@@ -82,8 +81,6 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
-          - AttributeName: expireAt
-            AttributeType: N
         KeySchema:
           - AttributeName: id
             KeyType: HASH
