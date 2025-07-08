@@ -15,18 +15,86 @@ paths:
         - in: query
           name: planet
           required: false
+          description: "Nombre del planeta a buscar. Por defecto: Tatooine"
           schema:
             type: string
-          description: "Nombre del planeta. Por defecto: Tatooine"
       responses:
         "200":
           description: Datos fusionados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    example: fusion
+                  data:
+                    type: object
+                    properties:
+                      planeta:
+                        type: string
+                        example: Alderaan
+                      poblacion:
+                        type: string
+                        example: "2000000000"
+                      terreno:
+                        type: string
+                        example: grasslands, mountains
+                      coordenadas:
+                        type: object
+                        properties:
+                          lat:
+                            type: number
+                            example: 51.51
+                          lon:
+                            type: number
+                            example: -0.13
+                      clima:
+                        type: object
+                        properties:
+                          temp_c:
+                            type: number
+                            example: 22
+                          condition:
+                            type: string
+                            example: Nublado
+                          icon:
+                            type: string
+                            example: icono.png
         "404":
           description: Planeta no encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Planeta no encontrado
         "429":
           description: Límite de solicitudes alcanzado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Demasiadas solicitudes. Intenta nuevamente en un momento.
         "500":
           description: Error interno
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Error interno
+                  error:
+                    type: string
+                    example: Detalle del error
 
   /almacenar:
     post:
@@ -40,18 +108,101 @@ paths:
               properties:
                 nombre:
                   type: string
+                  example: Luke Skywalker
                 planeta:
                   type: string
-              example:
-                nombre: Luke Skywalker
-                planeta: Tatooine
+                  example: Tatooine
       responses:
-        "200":
-          description: Datos almacenados
+        "201":
+          description: Datos almacenados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: 123e4567-e89b-12d3-a456-426614174000
+                  message:
+                    type: string
+                    example: Guardado exitoso
+        "400":
+          description: Body inválido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Body inválido
+        "500":
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Error interno
+                  error:
+                    type: string
+                    example: Detalle del error
 
   /historial:
     get:
       summary: Lista el historial de fusiones realizadas
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: Número máximo de registros a devolver
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: lastKey
+          required: false
+          description: Token de paginación para obtener la siguiente página de resultados. Se obtiene del campo `lastKey` en la respuesta anterior.
+          schema:
+            type: string
       responses:
         "200":
           description: Lista de historial
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        fecha:
+                          type: string
+                          format: date-time
+                        planeta:
+                          type: string
+                        fusion:
+                          type: object
+                  lastKey:
+                    type: string
+                    nullable: true
+                    description: Token para paginación. Si está presente, úsalo como parámetro `lastKey` en la siguiente petición para obtener más resultados.
+        "500":
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Error interno
+                  error:
+                    type: string
+                    example: Detalle del error

@@ -29,7 +29,7 @@ export const handler = async (
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Faltan campos obligatorios: nombre y descripción",
+          message: "Faltan campos obligatorios: nombre y descripcion",
         }),
       };
     }
