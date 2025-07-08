@@ -17,6 +17,7 @@ provider:
     RATE_LIMIT_MAX: "5"
     RATE_LIMIT_WINDOW_SEC: "60"
     WEATHER_API_KEY: e0740f7f1255468db1b34817250807
+    JWT_SECRET: supersecreto
   iam:
     role:
       statements:
@@ -71,6 +72,15 @@ functions:
       - httpApi:
           path: /historial
           method: get
+
+  generate-token:
+    handler: src/generate-token.handler
+    timeout: 5
+    memorySize: 128
+    events:
+      - httpApi:
+          path: /generate-token
+          method: post
 
 resources:
   Resources:

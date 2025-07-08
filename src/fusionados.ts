@@ -9,6 +9,7 @@ import axios from "axios";
 import { randomUUID } from "crypto";
 import { CACHE_TTL_MS, coordsList } from "./config/constants";
 import { isRateLimited } from "./utils/rateLimiter";
+import { verifyToken } from "./utils/auth";
 
 // 📦 X-Ray para trazabilidad
 import AWSXRay from "aws-xray-sdk-core";
@@ -16,6 +17,14 @@ const AWS = AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
 const ddb = DynamoDBDocumentClient.from(AWS);
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<any> => {
+  const auth = verifyToken(event.headers?.authorization);
+  if (!auth.valid) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ message: auth.message }),
+    };
+  }
+
   const now = Date.now();
   const planetName = event.queryStringParameters?.planet || "Tatooine";
   const sourceIp = event.requestContext?.http?.sourceIp || "unknown";

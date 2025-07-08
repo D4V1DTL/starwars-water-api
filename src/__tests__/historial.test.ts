@@ -2,14 +2,31 @@ import { handler } from "../historial";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import jwt from "jsonwebtoken";
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
+const TEST_SECRET = "supersecreto";
+const testToken = jwt.sign({ user: "test" }, TEST_SECRET, { expiresIn: "1h" });
 
 describe("handler historial - flujo exitoso sin paginación", () => {
   beforeEach(() => {
     ddbMock.reset();
     jest.clearAllMocks();
     process.env.HISTORIAL_TABLE = "historial-table";
+    process.env.JWT_SECRET = "supersecreto";
+  });
+
+  it("devuelve 401 si falta el token JWT", async () => {
+    const event = {
+      headers: {},
+      queryStringParameters: undefined,
+    } as any;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(401);
+    expect(JSON.parse(result.body)).toEqual({
+      message:
+        "Debes consumir primero el endpoint /generate-token para obtener un token válido.",
+    });
   });
 
   it("devuelve los items ordenados por fecha descendente", async () => {
@@ -20,6 +37,7 @@ describe("handler historial - flujo exitoso sin paginación", () => {
     ];
     ddbMock.on(ScanCommand).resolves({ Items: items });
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: undefined,
     } as unknown as APIGatewayProxyEvent;
     const result = await handler(event);
@@ -35,6 +53,7 @@ describe("handler historial - flujo exitoso sin paginación", () => {
     const originalError = console.error;
     console.error = jest.fn();
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: undefined,
     } as unknown as APIGatewayProxyEvent;
     const result = await handler(event);
@@ -55,6 +74,7 @@ describe("handler historial - flujo exitoso sin paginación", () => {
       .on(ScanCommand)
       .resolves({ Items: items, LastEvaluatedKey: lastKey });
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: undefined,
     } as unknown as APIGatewayProxyEvent;
     const result = await handler(event);
@@ -72,6 +92,7 @@ describe("handler historial - flujo exitoso sin paginación", () => {
     const encodedLastKey = encodeURIComponent(JSON.stringify(lastKey));
     ddbMock.on(ScanCommand).resolves({ Items: items });
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { lastKey: encodedLastKey },
     } as unknown as APIGatewayProxyEvent;
     const result = await handler(event);
@@ -85,6 +106,7 @@ describe("handler historial - flujo exitoso sin paginación", () => {
   it("devuelve un array vacío si ScanCommand no retorna Items", async () => {
     ddbMock.on(ScanCommand).resolves({});
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: undefined,
     } as unknown as APIGatewayProxyEvent;
     const result = await handler(event);

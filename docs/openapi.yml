@@ -7,10 +7,36 @@ info:
 servers:
   - url: https://uysdi5yi8a.execute-api.us-east-2.amazonaws.com
 
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
 paths:
+  /generate-token:
+    post:
+      summary: Genera un JWT para autenticación
+      description: |
+        Devuelve un token JWT firmado. Debes usar este token en el header `Authorization: Bearer <token>` para consumir el resto de los endpoints protegidos.
+      responses:
+        "200":
+          description: Token generado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
   /fusionados:
     get:
       summary: Fusiona datos de clima y planetas
+      security:
+        - bearerAuth: []
       parameters:
         - in: query
           name: planet
@@ -99,6 +125,8 @@ paths:
   /almacenar:
     post:
       summary: Almacena datos personalizados
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -109,9 +137,9 @@ paths:
                 nombre:
                   type: string
                   example: Luke Skywalker
-                planeta:
+                descripcion:
                   type: string
-                  example: Tatooine
+                  example: Jedi
       responses:
         "201":
           description: Datos almacenados correctamente
@@ -153,6 +181,8 @@ paths:
   /historial:
     get:
       summary: Lista el historial de fusiones realizadas
+      security:
+        - bearerAuth: []
       parameters:
         - in: query
           name: limit

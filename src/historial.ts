@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import * as AWSXRay from "aws-xray-sdk-core";
+import { verifyToken } from "./utils/auth";
 
 const ddb = DynamoDBDocumentClient.from(
   AWSXRay.captureAWSv3Client(new DynamoDBClient({}))
@@ -11,6 +12,14 @@ const tableName = process.env.HISTORIAL_TABLE!;
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  const auth = verifyToken(event.headers?.authorization);
+  if (!auth.valid) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ message: auth.message }),
+    };
+  }
+
   console.log("[historial] Solicitud recibida");
 
   try {

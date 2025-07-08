@@ -8,11 +8,16 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import axios from "axios";
 import { isRateLimited } from "../utils/rateLimiter";
+import jwt from "jsonwebtoken";
+import { verifyToken } from "../utils/auth";
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
+
+const TEST_SECRET = "supersecreto";
+const testToken = jwt.sign({ user: "test" }, TEST_SECRET, { expiresIn: "1h" });
 
 // Elimino el describe de isRateLimited y dejo solo los describes del handler fusionados
 
@@ -23,7 +28,21 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     process.env.CACHE_TABLE = "cache-table";
     process.env.HISTORIAL_TABLE = "historial-table";
     process.env.WEATHER_API_KEY = "fake-weather-key";
+    process.env.JWT_SECRET = "supersecreto";
     ddbMock.on(GetCommand).resolves({ Item: undefined });
+  });
+
+  it("devuelve 401 si falta el token JWT", async () => {
+    const event = {
+      headers: {},
+      queryStringParameters: { planet: "Tatooine" },
+    } as any;
+    const result = await handler(event);
+    expect(result.statusCode).toBe(401);
+    expect(JSON.parse(result.body)).toEqual({
+      message:
+        "Debes consumir primero el endpoint /generate-token para obtener un token válido.",
+    });
   });
 
   it("devuelve 404 si SWAPI no encuentra el planeta", async () => {
@@ -45,6 +64,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       })
     );
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "PlanetaInexistente" },
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -63,6 +83,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     const originalError = console.error;
     console.error = jest.fn();
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "Tatooine" },
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -109,6 +130,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       })
     );
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "Alderaan" },
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -235,6 +257,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       })
     );
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "Tatooine" },
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -285,6 +308,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       })
     );
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "Tatooine" },
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -342,6 +366,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       })
     );
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: undefined, // No se pasa parámetro
     } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
@@ -364,6 +389,7 @@ describe("handler fusionados - 429 si se excede el rate limit", () => {
     process.env.CACHE_TABLE = "cache-table";
     process.env.HISTORIAL_TABLE = "historial-table";
     process.env.WEATHER_API_KEY = "fake-weather-key";
+    process.env.JWT_SECRET = "supersecreto";
   });
 
   it("devuelve 429 si isRateLimited retorna true", async () => {
@@ -372,6 +398,7 @@ describe("handler fusionados - 429 si se excede el rate limit", () => {
       .spyOn(require("../utils/rateLimiter"), "isRateLimited")
       .mockResolvedValue(true);
     const event = {
+      headers: { authorization: `Bearer ${testToken}` },
       queryStringParameters: { planet: "Tatooine" },
       requestContext: { http: { sourceIp: "1.2.3.4" } },
     } as unknown as APIGatewayProxyEventV2;
@@ -381,4 +408,10 @@ describe("handler fusionados - 429 si se excede el rate limit", () => {
       message: "Demasiadas solicitudes. Intenta nuevamente en un momento.",
     });
   });
+});
+
+it("verifyToken devuelve error si el token es inválido", () => {
+  const result = verifyToken("Bearer token_invalido");
+  expect(result.valid).toBe(false);
+  expect(result.message).toMatch(/Token inválido/);
 });
