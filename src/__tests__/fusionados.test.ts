@@ -1,5 +1,5 @@
 import { handler } from "../fusionados";
-import { APIGatewayProxyEvent } from "aws-lambda";
+import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { mockClient } from "aws-sdk-client-mock";
 import {
   DynamoDBDocumentClient,
@@ -43,7 +43,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     );
     const event = {
       queryStringParameters: { planet: "PlanetaInexistente" },
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(404);
     expect(JSON.parse(result.body)).toEqual({
@@ -61,7 +61,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     console.error = jest.fn();
     const event = {
       queryStringParameters: { planet: "Tatooine" },
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(500);
     const body = JSON.parse(result.body);
@@ -107,7 +107,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     );
     const event = {
       queryStringParameters: { planet: "Alderaan" },
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -233,7 +233,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     );
     const event = {
       queryStringParameters: { planet: "Tatooine" },
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -283,7 +283,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     );
     const event = {
       queryStringParameters: { planet: "Tatooine" },
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -340,7 +340,7 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
     );
     const event = {
       queryStringParameters: undefined, // No se pasa parámetro
-    } as unknown as APIGatewayProxyEvent;
+    } as unknown as APIGatewayProxyEventV2;
     const result = await handler(event);
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);

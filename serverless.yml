@@ -6,10 +6,14 @@ provider:
   runtime: nodejs20.x
   region: us-east-2
   logRetentionInDays: 7
+  tracing:
+    lambda: true
+    apiGateway: true
   environment:
     CACHE_TABLE: fusionados_cache
     HISTORIAL_TABLE: fusionados_historial
     PERSONAL_TABLE: almacenar_personalizado
+    RATE_LIMIT_TABLE: rate_limit_table
     WEATHER_API_KEY: e0740f7f1255468db1b34817250807
   iam:
     role:
@@ -23,16 +27,18 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fusionados_cache
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fusionados_historial
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/almacenar_personalizado
-  httpApi:
-    cors:
-      allowedOrigins:
-        - "*"
-      allowedHeaders:
-        - Content-Type
-        - Authorization
-      allowedMethods:
-        - GET
-        - POST
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/rate_limit_table
+
+httpApi:
+  cors:
+    allowedOrigins:
+      - "*"
+    allowedHeaders:
+      - Content-Type
+      - Authorization
+    allowedMethods:
+      - GET
+      - POST
 
 package:
   individually: true
@@ -74,10 +80,15 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
+          - AttributeName: expireAt
+            AttributeType: N
         KeySchema:
           - AttributeName: id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
+        TimeToLiveSpecification:
+          AttributeName: expireAt
+          Enabled: true
 
     FusionadosHistorialTable:
       Type: AWS::DynamoDB::Table
@@ -95,6 +106,18 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: almacenar_personalizado
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    RateLimitTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: rate_limit_table
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S

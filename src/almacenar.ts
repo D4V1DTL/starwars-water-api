@@ -2,13 +2,18 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
+import * as AWSXRay from "aws-xray-sdk-core";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const ddb = DynamoDBDocumentClient.from(
+  AWSXRay.captureAWSv3Client(new DynamoDBClient({}))
+);
 const tableName = process.env.PERSONAL_TABLE!;
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  console.log("[almacenar] Request recibido");
+
   try {
     if (!event.body) {
       return {
@@ -20,7 +25,6 @@ export const handler = async (
     const data = JSON.parse(event.body);
     const { nombre, descripcion, ...rest } = data;
 
-    // Validación básica obligatoria
     if (!nombre || !descripcion) {
       return {
         statusCode: 400,
@@ -34,7 +38,7 @@ export const handler = async (
       id: randomUUID(),
       nombre,
       descripcion,
-      ...rest, // Campos personalizados
+      ...rest,
       creadoEn: new Date().toISOString(),
     };
 
@@ -45,6 +49,7 @@ export const handler = async (
       })
     );
 
+    console.log("[almacenar] Guardado exitoso:", item.id);
     return {
       statusCode: 201,
       body: JSON.stringify({
@@ -53,7 +58,7 @@ export const handler = async (
       }),
     };
   } catch (err: any) {
-    console.error("Error al guardar:", err);
+    console.error("[almacenar] Error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({

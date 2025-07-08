@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
@@ -8,19 +8,26 @@ import {
 import axios from "axios";
 import { randomUUID } from "crypto";
 import { CACHE_TTL_MS, coordsList } from "./config/constants";
+import * as AWSXRay from "aws-xray-sdk-core";
+
+const ddb = DynamoDBDocumentClient.from(
+  AWSXRay.captureAWSv3Client(new DynamoDBClient({}))
+);
 
 export const handler = async (
-  event: APIGatewayProxyEvent
+  event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResult> => {
-  const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   const planetName = event.queryStringParameters?.planet || "Tatooine";
   const now = Date.now();
+  const sourceIp = event.requestContext?.http?.sourceIp || "unknown";
+
+  console.log(`[fusionados] Inicio → IP: ${sourceIp}, planeta: ${planetName}`);
 
   try {
     let coordIndex = Math.floor(Math.random() * coordsList.length);
     const { lat, lon } = coordsList[coordIndex];
 
-    // 1. Cache WeatherAPI
+    // Weather Cache
     const weatherKey = `weather#${coordIndex}`;
     let weatherData;
 
@@ -52,13 +59,14 @@ export const handler = async (
           Item: {
             id: weatherKey,
             timestamp: now,
+            expireAt: Math.floor(now / 1000) + CACHE_TTL_MS / 1000,
             data: weatherData,
           },
         })
       );
     }
 
-    // 2. Cache SWAPI
+    // SWAPI Cache
     const swapiKey = `swapi#${planetName}`;
     let swapiData;
 
@@ -91,13 +99,13 @@ export const handler = async (
           Item: {
             id: swapiKey,
             timestamp: now,
+            expireAt: Math.floor(now / 1000) + CACHE_TTL_MS / 1000,
             data: swapiData,
           },
         })
       );
     }
 
-    // 3. Fusionar
     const fusion = {
       planeta: swapiData.name,
       poblacion: swapiData.population,
@@ -110,7 +118,6 @@ export const handler = async (
       },
     };
 
-    // 4. Guardar en historial
     await ddb.send(
       new PutCommand({
         TableName: process.env.HISTORIAL_TABLE!,
@@ -123,12 +130,13 @@ export const handler = async (
       })
     );
 
+    console.log(`[fusionados] Éxito: planeta ${swapiData.name}`);
     return {
       statusCode: 200,
       body: JSON.stringify({ source: "fusion", data: fusion }),
     };
   } catch (err: any) {
-    console.error("Error en /fusionados:", err);
+    console.error("[fusionados] Error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: "Error interno", error: err.message }),
