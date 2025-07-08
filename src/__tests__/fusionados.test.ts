@@ -50,18 +50,6 @@ describe("handler fusionados - 404 si SWAPI no encuentra el planeta", () => {
       message: "Planeta no encontrado",
     });
   });
-});
-
-describe("handler fusionados - 500 si falla WeatherAPI", () => {
-  beforeEach(() => {
-    ddbMock.reset();
-    jest.clearAllMocks();
-    process.env.CACHE_TABLE = "cache-table";
-    process.env.HISTORIAL_TABLE = "historial-table";
-    process.env.WEATHER_API_KEY = "fake-weather-key";
-    ddbMock.on(GetCommand).resolves({ Item: undefined });
-  });
-
   it("devuelve 500 si la llamada a WeatherAPI falla", async () => {
     // Mock de WeatherAPI que lanza error
     mockedAxios.get.mockImplementationOnce(() =>
@@ -139,16 +127,6 @@ describe("handler fusionados - clima en caché, SWAPI desde API", () => {
     expect(body.data.poblacion).toBe("2000000000");
     expect(body.data.terreno).toBe("grasslands, mountains");
     expect(mockedAxios.get).toHaveBeenCalledTimes(1); // Solo SWAPI
-  });
-});
-
-describe("handler fusionados - happy path con datos reales de las APIs", () => {
-  beforeEach(() => {
-    ddbMock.reset();
-    jest.clearAllMocks();
-    process.env.CACHE_TABLE = "cache-table";
-    process.env.HISTORIAL_TABLE = "historial-table";
-    process.env.WEATHER_API_KEY = "fake-weather-key";
   });
 
   it("happy path con datos reales de las APIs", async () => {
@@ -278,16 +256,6 @@ describe("handler fusionados - happy path con datos reales de las APIs", () => {
     );
     expect(mockedAxios.get).toHaveBeenCalledTimes(2); // WeatherAPI y SWAPI
   });
-});
-
-describe("handler fusionados - planeta en caché, clima desde API", () => {
-  beforeEach(() => {
-    ddbMock.reset();
-    jest.clearAllMocks();
-    process.env.CACHE_TABLE = "cache-table";
-    process.env.HISTORIAL_TABLE = "historial-table";
-    process.env.WEATHER_API_KEY = "fake-weather-key";
-  });
 
   it("devuelve datos de planeta desde la caché si no ha expirado, y clima desde WeatherAPI", async () => {
     const now = Date.now();
@@ -335,16 +303,6 @@ describe("handler fusionados - planeta en caché, clima desde API", () => {
     expect(body.data.clima.condition).toBe("Despejado");
     expect(body.data.clima.icon).toBe("icono_clima.png");
     expect(mockedAxios.get).toHaveBeenCalledTimes(1); // Solo WeatherAPI
-  });
-});
-
-describe("handler fusionados - usa planeta por defecto si no se pasa parámetro", () => {
-  beforeEach(() => {
-    ddbMock.reset();
-    jest.clearAllMocks();
-    process.env.CACHE_TABLE = "cache-table";
-    process.env.HISTORIAL_TABLE = "historial-table";
-    process.env.WEATHER_API_KEY = "fake-weather-key";
   });
 
   it("usa 'Tatooine' como planeta por defecto si no se pasa parámetro", async () => {
